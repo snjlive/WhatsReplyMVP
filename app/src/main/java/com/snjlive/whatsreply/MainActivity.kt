@@ -42,7 +42,9 @@ class MainActivity : Activity() {
     }
     override fun onPause() { ReplyState.changed = null; super.onPause() }
     private fun render() {
-        val granted = getSystemService(NotificationManager::class.java).isNotificationListenerAccessGranted(ComponentName(this, ReplyListener::class.java))
+        val component = ComponentName(this, ReplyListener::class.java)
+        val granted = if (android.os.Build.VERSION.SDK_INT >= 27) getSystemService(NotificationManager::class.java).isNotificationListenerAccessGranted(component)
+            else Settings.Secure.getString(contentResolver, "enabled_notification_listeners")?.split(':')?.any { ComponentName.unflattenFromString(it) == component } == true
         details.text = "Доступ: ${if (granted) "разрешён" else "не разрешён"}\nСлужба: ${if (ReplyState.connected) "подключена" else "ожидание подключения"}\n\nОт: ${ReplyState.sender}\n${ReplyState.text}\n\n${ReplyState.status}\n"
         reply.isEnabled = granted && ReplyState.connected && ReplyState.action != null
     }

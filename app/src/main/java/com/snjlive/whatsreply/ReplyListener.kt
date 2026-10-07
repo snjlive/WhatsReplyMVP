@@ -36,9 +36,9 @@ class ReplyListener : NotificationListenerService() {
         val n = sbn.notification
         if (n.flags and Notification.FLAG_GROUP_SUMMARY != 0) return
         if (n.category != Notification.CATEGORY_MESSAGE && n.extras.getCharSequence(Notification.EXTRA_TEXT).isNullOrBlank()) return
-        val messages = Notification.MessagingStyle.Message.getMessagesFromBundleArray(n.extras.getParcelableArray(Notification.EXTRA_MESSAGES))
+        val messages = if (android.os.Build.VERSION.SDK_INT >= 30) Notification.MessagingStyle.Message.getMessagesFromBundleArray(n.extras.getParcelableArray(Notification.EXTRA_MESSAGES)) else emptyList()
         val last = messages.lastOrNull()
-        ReplyState.sender = last?.senderPerson?.name?.toString()
+        ReplyState.sender = (if (android.os.Build.VERSION.SDK_INT >= 28) last?.senderPerson?.name?.toString() else last?.sender?.toString())
             ?: n.extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
         ReplyState.text = last?.text?.toString()
             ?: n.extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()
