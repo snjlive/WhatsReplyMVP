@@ -266,7 +266,12 @@ class MainActivity : Activity() {
         if((tts?.setLanguage(language) ?: TextToSpeech.LANG_NOT_SUPPORTED) < 0) {
             status.text = "Установите голос для ${language.displayLanguage} в настройках телефона"; return
         }
-        if(tts?.speak(text,TextToSpeech.QUEUE_FLUSH,null,"draft") == TextToSpeech.ERROR) status.text = "Не удалось воспроизвести ответ"
+        text.chunked(TextToSpeech.getMaxSpeechInputLength() - 100).forEachIndexed { index, part ->
+            val queue = if(index == 0) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
+            if(tts?.speak(part,queue,null,"draft-$index") == TextToSpeech.ERROR) {
+                status.text = "Не удалось воспроизвести ответ"; return
+            }
+        }
     }
     private fun transmit() {
         val chat = selected ?: return; val text = draft.text.toString().trim()
