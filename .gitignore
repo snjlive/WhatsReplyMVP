@@ -4,3 +4,6 @@ build/
 app/build/
 local.properties
 *.jks
+.build-tools/
+backend/.env
+backend/__pycache__/

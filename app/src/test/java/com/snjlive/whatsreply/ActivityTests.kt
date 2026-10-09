@@ -1,0 +1,46 @@
+package com.snjlive.whatsreply
+
+import android.view.View
+import android.view.ViewGroup
+import android.widget.Button
+import android.widget.EditText
+import org.junit.Assert.*
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.Robolectric
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
+import org.robolectric.annotation.Config
+
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [28,35])
+@org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.LEGACY)
+class ActivityTests {
+    @Before fun before() {
+        RuntimeEnvironment.getApplication().deleteDatabase("history.db")
+        ReplyState.targets.clear(); ReplyState.connected = false; ReplyState.changed = null
+    }
+    private fun descendants(v: View): List<View> = listOf(v) + if(v is ViewGroup) (0 until v.childCount).flatMap { descendants(v.getChildAt(it)) } else emptyList()
+    @Test fun emptyScreenStartsWithDisabledReplyActions() {
+        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val views = descendants(controller.get().window.decorView)
+        val buttons = views.filterIsInstance<Button>()
+        assertFalse(buttons.first { it.text.toString().contains("Что ответить") }.isEnabled)
+        assertFalse(buttons.first { it.text.toString().startsWith("Отправить") }.isEnabled)
+        controller.pause().stop().destroy()
+    }
+    @Test fun manuallyEditedDraftSurvivesActivityRecreation() {
+        val context = RuntimeEnvironment.getApplication()
+        HistoryStore(context).use { it.add(Chat("jira","Jira"),"incoming","Payment?") }
+        val first = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val edit = descendants(first.get().window.decorView).filterIsInstance<EditText>().single()
+        edit.setText("We will pay Monday")
+        first.pause().stop().destroy()
+        val second = Robolectric.buildActivity(MainActivity::class.java).setup()
+        assertEquals("We will pay Monday",descendants(second.get().window.decorView).filterIsInstance<EditText>().single().text.toString())
+        val voice = descendants(second.get().window.decorView).filterIsInstance<Button>().first { it.text.toString().contains("Что ответить") }
+        assertTrue(voice.isEnabled)
+        second.pause().stop().destroy()
+    }
+}

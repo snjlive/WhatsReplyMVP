@@ -16,7 +16,8 @@ jobs:
           java-version: '17'
       - uses: android-actions/setup-android@v3
       - uses: gradle/actions/setup-gradle@v4
-      - run: chmod +x gradlew && ./gradlew assembleDebug lintDebug
+      - run: chmod +x gradlew && ./gradlew assembleDebug lintDebug testDebugUnitTest
+      - run: python3 -m unittest discover -s backend -v
       - uses: actions/upload-artifact@v4
         with:
           name: WhatsReplyMVP-debug

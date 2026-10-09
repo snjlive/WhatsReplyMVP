@@ -1,0 +1,17 @@
+# Optional managed deployment: import this backend folder as a Render Blueprint.
+services:
+  - type: web
+    name: whatsreply-ai
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /health
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: WHATSREPLY_ACCESS_TOKEN
+        generateValue: true
+      - key: OPENAI_MODEL
+        value: gpt-4.1-mini
+      - key: DAILY_REQUEST_LIMIT
+        value: '200'

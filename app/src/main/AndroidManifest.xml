@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application android:label="Whats Reply MVP" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:allowBackup="false" android:supportsRtl="true">
-        <activity android:name=".MainActivity" android:exported="true">
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <queries><intent><action android:name="android.speech.RecognitionService"/></intent><intent><action android:name="android.intent.action.TTS_SERVICE"/></intent></queries>
+    <application android:label="Whats Reply MVP" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:usesCleartextTraffic="false" android:allowBackup="false" android:fullBackupContent="false" android:dataExtractionRules="@xml/data_extraction_rules" android:icon="@drawable/ic_app" android:supportsRtl="true">
+        <activity android:name=".MainActivity" android:windowSoftInputMode="adjustResize" android:exported="true">
             <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
         </activity>
         <service android:name=".ReplyListener" android:exported="false" android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
