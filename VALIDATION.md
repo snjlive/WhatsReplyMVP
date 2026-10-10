@@ -8,3 +8,11 @@
 - No connected Android device/emulator: physical-device STT/TTS/UI testing of 0.2 was not performed. Original RemoteInput transport was confirmed on the user's phone.
 - No provider key or hosted AI server is available. Production AI generation and deployment are not verified; the APK intentionally ships without fake AI responses or credentials. Proxy tests cover generation/revision using a fake provider, authentication, request validation, limits and safe errors.
 - The user explicitly authorized publication and inspection of OpenAI API settings. Source and the locally signed APK are published on `codex/mvp-0.2`. No provider secret is included. AI provisioning remains pending; no live generation is claimed.
+
+# UX update 0.3 — 2026-10-10
+
+- Native inbox home screen with contact/message search over stored history, waiting-for-reply filter, latest incoming previews and unread markers. Chat view keeps draft, audio/revision/text instruction and send controls together at the bottom. Latest incoming is shown first.
+- Debug APK version code 3, version 0.3; same application ID and debug signing key. Database schema and AI settings storage unchanged.
+- Local assembleDebug, lintDebug and testDebugUnitTest succeeded: 20 Android test cases across API 28 and 35. Coverage includes inbox search/open/back navigation and draft persistence; existing RemoteInput safeguards remain tested.
+- Render service was deployed and real generation returned HTTP 200 on 2026-10-10. User confirmed voice/AI/reply functionality on their phone for 0.2. No provider credentials are included in the repository or APK.
+- New 0.3 UI has not yet been visually tested on a physical phone. Stored notifications provide the inbox; this does not import older WhatsApp history.

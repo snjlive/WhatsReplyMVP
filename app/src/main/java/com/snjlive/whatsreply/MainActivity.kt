@@ -32,6 +32,13 @@ class MainActivity : Activity() {
     private lateinit var listen: Button
     private lateinit var history: LinearLayout
     private lateinit var permissions: Button
+    private lateinit var inboxPage: LinearLayout
+    private lateinit var chatPage: LinearLayout
+    private lateinit var chatRows: LinearLayout
+    private lateinit var inboxSummary: TextView
+    private lateinit var search: EditText
+    private var onlyWaiting = false
+    private var showingChat = false
     private var selected: Chat? = null
     private var source = 0L
     private var busy = false
@@ -53,42 +60,75 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         store = HistoryStore(this); settings = AiSettings(this)
-        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(Color.rgb(244,248,247)) }
+        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(Color.rgb(245,247,249)) }
         root.setOnApplyWindowInsetsListener { v, i -> v.setPadding(dp(16),i.systemWindowInsetTop,dp(16),i.systemWindowInsetBottom); i }
-        val header = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = android.view.Gravity.CENTER_VERTICAL }
-        header.addView(label("WhatsReply 0.2",24f).apply { setTypeface(null,Typeface.BOLD) },LinearLayout.LayoutParams(0,-2,1f))
-        header.addView(button("⚙") { configureAi() }.apply { contentDescription = "Настроить AI" },LinearLayout.LayoutParams(dp(56),-2))
+        val header = LinearLayout(this).apply { gravity = android.view.Gravity.CENTER_VERTICAL }
+        header.addView(label("WhatsReply",26f).apply { setTypeface(null,Typeface.BOLD) },LinearLayout.LayoutParams(0,-2,1f))
+        header.addView(button("⚙") { configureAi() }.apply { contentDescription = "Настройки подключения AI" },LinearLayout.LayoutParams(dp(56),-2))
         root.addView(header)
-        permissions = button("Разрешить уведомления WhatsApp") { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+        permissions = button("Подключить уведомления WhatsApp") { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
         root.addView(permissions)
-        contact = label("Ожидание сообщения",22f).apply { setTypeface(null,Typeface.BOLD); setOnClickListener { chooseContact() } }
-        root.addView(contact)
+        inboxPage = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        inboxSummary = label("Чаты",18f); inboxPage.addView(inboxSummary)
+        search = EditText(this).apply {
+            hint = "Поиск по имени или сообщению"; isSingleLine = true; textSize = 16f
+            inputType = android.text.InputType.TYPE_CLASS_TEXT
+            setPadding(dp(16),dp(12),dp(16),dp(12)); background = surface(Color.WHITE)
+        }
+        inboxPage.addView(search)
+        val filters = LinearLayout(this)
+        filters.addView(button("Все чаты") { onlyWaiting = false; renderInbox() },LinearLayout.LayoutParams(0,-2,1f))
+        filters.addView(button("Ждут ответа") { onlyWaiting = true; renderInbox() },LinearLayout.LayoutParams(0,-2,1f))
+        inboxPage.addView(filters)
+        val inboxScroll = ScrollView(this)
+        chatRows = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        inboxScroll.addView(chatRows); inboxPage.addView(inboxScroll,LinearLayout.LayoutParams(-1,0,1f))
+        inboxPage.addView(label("Здесь сообщения, полученные из уведомлений после подключения приложения.",13f))
+        root.addView(inboxPage,LinearLayout.LayoutParams(-1,0,1f))
+        chatPage = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
+        val chatHeader = LinearLayout(this).apply { gravity = android.view.Gravity.CENTER_VERTICAL }
+        chatHeader.addView(button("‹ Чаты") { showInbox() },LinearLayout.LayoutParams(dp(100),-2))
+        contact = label("",19f).apply { setTypeface(null,Typeface.BOLD) }
+        chatHeader.addView(contact,LinearLayout.LayoutParams(0,-2,1f)); chatPage.addView(chatHeader)
         val scroll = ScrollView(this)
         val body = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        incoming = label("Получите новое сообщение в WhatsApp Business",18f)
-        body.addView(incoming)
-        body.addView(label("Готовый ответ • можно изменить текст"))
+        history = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        incoming = label("",16f).apply { setPadding(dp(14),dp(12),dp(14),dp(12)); background = surface(Color.WHITE) }
+        body.addView(label("Последнее входящее",13f)); body.addView(incoming)
+        body.addView(label("Переписка · последние сообщения сверху",13f)); body.addView(history)
+        scroll.addView(body); chatPage.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
+        chatPage.addView(label("Ваш ответ · текст можно редактировать",13f))
         draft = EditText(this).apply {
-            hint = "Нажмите «Что ответить?» и скажите по-русски"; textSize = 18f; minLines = 3; maxLines = 8
+            hint = "Нажмите микрофон и скажите, что ответить"; textSize = 17f; minLines = 2; maxLines = 4
+            setPadding(dp(14),dp(10),dp(14),dp(10)); background = surface(Color.WHITE)
             gravity = android.view.Gravity.TOP; inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE or android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
         }
-        body.addView(draft)
+        chatPage.addView(draft)
+        status = label("",13f); status.setTextColor(teal); chatPage.addView(status)
         val audio = LinearLayout(this)
-        listen = button("▶ Прослушать") { speak() }
-        revise = button("🎙 Исправить") { startSpeech(true) }
-        audio.addView(listen,LinearLayout.LayoutParams(0,-2,1f)); audio.addView(revise,LinearLayout.LayoutParams(0,-2,1f)); body.addView(audio)
-        body.addView(button("Написать инструкцию") { textInstruction(false) })
-        body.addView(label("История контакта",18f).apply { setTypeface(null,Typeface.BOLD) })
-        history = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }; body.addView(history)
-        scroll.addView(body); root.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
-        status = label("История хранится на телефоне",14f); root.addView(status)
+        listen = button("▶ Слушать") { speak() }
+        revise = button("🎙 Правка") { startSpeech(true) }
+        audio.addView(listen,LinearLayout.LayoutParams(0,-2,1f)); audio.addView(revise,LinearLayout.LayoutParams(0,-2,1f))
+        audio.addView(button("⌨ Текст") { textInstruction(draft.text.isNotBlank()) }.apply { contentDescription = "Инструкция текстом" },LinearLayout.LayoutParams(0,-2,1f))
+        chatPage.addView(audio)
+        val actions = LinearLayout(this)
         voice = button("🎙 Что ответить?") { startSpeech(false) }.apply {
-            setBackgroundTintList(android.content.res.ColorStateList.valueOf(teal)); setTextColor(Color.WHITE); minHeight = dp(64)
+            backgroundTintList = android.content.res.ColorStateList.valueOf(teal); setTextColor(Color.WHITE); minHeight = dp(60)
         }
-        root.addView(voice)
-        send = button("Отправить") { transmit() }.apply { minHeight = dp(58) }
-        root.addView(send)
+        send = button("Отправить ➤") { transmit() }.apply { minHeight = dp(60) }
+        actions.addView(voice,LinearLayout.LayoutParams(0,-2,1.2f)); actions.addView(send,LinearLayout.LayoutParams(0,-2,1f)); chatPage.addView(actions)
+        root.addView(chatPage,LinearLayout.LayoutParams(-1,0,1f))
         setContentView(root)
+        if(android.os.Build.VERSION.SDK_INT >= 33) {
+            onBackInvokedDispatcher.registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT) {
+                if(showingChat) showInbox() else finish()
+            }
+        }
+        search.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { renderInbox() }
+            override fun afterTextChanged(s: android.text.Editable?) = Unit
+        })
         tts = TextToSpeech(this) { result -> runOnUiThread { ttsReady = result == TextToSpeech.SUCCESS; renderButtons() } }
         val savedId = savedInstanceState?.getString("chat") ?: getPreferences(MODE_PRIVATE).getString("selected",null)
         selected = store.chats().firstOrNull { it.id == savedId } ?: store.chats().firstOrNull()
@@ -99,6 +139,9 @@ class MainActivity : Activity() {
             speechSource = savedInstanceState.getLong("speechSource"); speechRevision = savedInstanceState.getBoolean("speechRevision")
             speechDraft = savedInstanceState.getString("speechDraft","")
         }
+        showingChat = savedInstanceState?.getBoolean("showingChat") ?: false
+        inboxPage.visibility = if(showingChat) View.GONE else View.VISIBLE
+        chatPage.visibility = if(showingChat) View.VISIBLE else View.GONE
         draft.addTextChangedListener(object : android.text.TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { renderButtons() }
@@ -111,6 +154,7 @@ class MainActivity : Activity() {
     override fun onPause() { persistDraft(); ReplyState.changed = null; tts?.stop(); super.onPause() }
     override fun onDestroy() { tts?.shutdown(); executor.shutdown(); store.close(); super.onDestroy() }
     override fun onSaveInstanceState(out: Bundle) {
+        out.putBoolean("showingChat",showingChat)
         out.putString("chat",selected?.id); out.putString("draft",draft.text.toString()); out.putLong("source",source)
         out.putString("speechChat",speechChat?.id); out.putLong("speechSource",speechSource)
         out.putBoolean("speechRevision",speechRevision); out.putString("speechDraft",speechDraft)
@@ -141,18 +185,25 @@ class MainActivity : Activity() {
         if(selected == null) { selected = store.chats().firstOrNull(); restoreDraft() }
         permissions.visibility = if(hasAccess()) View.GONE else View.VISIBLE
         val chat = selected
-        contact.text = (chat?.name ?: "Ожидание сообщения") + if(chat != null) " ▾" else ""
+        contact.text = (chat?.name ?: "Ожидание сообщения")
         val last = chat?.let { store.latest(it.id,"incoming") }
-        incoming.text = last?.let { "Входящее • ${time(it.time)}\n${it.text}" } ?: "Получите новое сообщение в WhatsApp Business"
+        incoming.text = last?.let { "${time(it.time)}\n${it.text}" } ?: "Получите новое сообщение в WhatsApp Business"
+        if(showingChat && last != null) getPreferences(MODE_PRIVATE).edit().putLong("read:${chat?.id}",last.id).apply()
         if(draft.text.isNullOrBlank()) source = last?.id ?: 0L
         if(last != null && source != last.id && draft.text.isNotBlank()) status.text = "Пришло новое сообщение — подготовьте ответ заново"
         history.removeAllViews()
-        chat?.let { store.entries(it.id,30).forEach { entry ->
+        chat?.let { store.entries(it.id,80).filter { entry -> entry.id != last?.id }.reversed().forEach { entry ->
             val kind = when(entry.kind) { "incoming" -> "Входящее"; "draft" -> "Черновик"; else -> "Передано в WhatsApp" }
-            history.addView(label("$kind • ${time(entry.time)}\n${entry.text}",14f).apply {
-                setTextColor(if(entry.kind == "incoming") Color.DKGRAY else teal)
+            val bubble = label("$kind • ${time(entry.time)}\n${entry.text}",16f).apply {
+                setPadding(dp(12),dp(10),dp(12),dp(10))
+                background = surface(if(entry.kind == "incoming") Color.WHITE else Color.rgb(222,242,236))
+                setTextIsSelectable(true)
+            }
+            history.addView(bubble,LinearLayout.LayoutParams(-1,-2).apply {
+                setMargins(if(entry.kind == "incoming") 0 else dp(24),dp(4),if(entry.kind == "incoming") dp(24) else 0,dp(4))
             })
         } }
+        renderInbox()
         renderButtons()
     }
     private fun renderButtons() {
@@ -163,16 +214,61 @@ class MainActivity : Activity() {
         listen.isEnabled = ttsReady && text.isNotBlank()
         val target = chat?.let { ReplyState.targets[it.id] }
         send.isEnabled = !busy && text.isNotBlank() && text.length <= 12000 && hasAccess() && ReplyState.connected && target?.incoming == source && chat?.let { store.latest(it.id,"incoming")?.id } == source
-        send.text = if(chat != null) "Отправить → ${chat.name}" else "Отправить"
+        send.text = "Отправить ➤"
+        send.contentDescription = "Отправить ответ ${chat?.name.orEmpty()}"
+        revise.visibility = if(text.isBlank()) View.GONE else View.VISIBLE
+        listen.visibility = if(text.isBlank()) View.GONE else View.VISIBLE
         voice.text = if(busy) "Готовлю ответ…" else "🎙 Что ответить?"
     }
-    private fun chooseContact() {
-        if(busy) return
-        val chats = store.chats()
-        AlertDialog.Builder(this).setTitle("Контакты").setItems(chats.map { it.name }.toTypedArray()) { _, index ->
-            persistDraft(); selected = chats[index]; restoreDraft(); render()
-        }.setNegativeButton("Закрыть",null).show()
+    private fun surface(color: Int) = android.graphics.drawable.GradientDrawable().apply {
+        setColor(color); cornerRadius = dp(14).toFloat()
     }
+    private fun waiting(chat: Chat): Boolean {
+        val last = store.latest(chat.id,"incoming") ?: return false
+        return store.latest(chat.id,"sent")?.source != last.id
+    }
+    private fun renderInbox() {
+        if(!::chatRows.isInitialized) return
+        val all = store.chats().sortedByDescending { store.latest(it.id,"incoming")?.time ?: 0L }
+        val query = search.text.toString().trim()
+        val chats = all.filter { chat ->
+            (!onlyWaiting || waiting(chat)) && (query.isBlank() || chat.name.contains(query,true) || store.matchesMessage(chat.id,query))
+        }
+        inboxSummary.text = if(onlyWaiting) "Ждут ответа · ${chats.size}" else "Все чаты · ${all.size}"
+        chatRows.removeAllViews()
+        if(chats.isEmpty()) chatRows.addView(label(if(all.isEmpty()) "Пока нет сообщений\nПолучите сообщение в WhatsApp Business — чат появится здесь." else "Ничего не найдено",17f))
+        val prefs = getPreferences(MODE_PRIVATE)
+        chats.forEach { chat ->
+            val last = store.latest(chat.id,"incoming")
+            val savedDraft = store.latest(chat.id,"draft")
+            val sent = store.latest(chat.id,"sent")
+            val hasDraft = savedDraft != null && savedDraft.source == last?.id && (sent == null || savedDraft.id > sent.id)
+            val unread = last != null && last.id > prefs.getLong("read:${chat.id}",0)
+            val card = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL; setPadding(dp(14),dp(12),dp(14),dp(12)); background = surface(Color.WHITE)
+                isClickable = true; isFocusable = true
+                setOnClickListener {
+                    if(busy) return@setOnClickListener
+                    persistDraft(); selected = chat; restoreDraft(); showingChat = true
+                    last?.let { prefs.edit().putLong("read:${chat.id}",it.id).apply() }
+                    inboxPage.visibility = View.GONE; chatPage.visibility = View.VISIBLE
+                    status.text = if(hasDraft) "Черновик готов" else "Скажите по-русски, что ответить"
+                    render()
+                }
+            }
+            card.addView(label((if(unread) "● " else "") + chat.name,18f).apply { setTypeface(null,Typeface.BOLD) })
+            card.addView(label(last?.text.orEmpty(),16f).apply { maxLines = 2; ellipsize = android.text.TextUtils.TruncateAt.END })
+            card.addView(label("${last?.let { time(it.time) }.orEmpty()} · ${if(hasDraft) "Черновик" else if(waiting(chat)) "Ждёт ответа" else "Ответ передан"}",13f).apply { setTextColor(teal) })
+            chatRows.addView(card,LinearLayout.LayoutParams(-1,-2).apply { setMargins(0,dp(5),0,dp(5)) })
+        }
+    }
+    private fun showInbox() {
+        persistDraft(); tts?.stop(); showingChat = false
+        chatPage.visibility = View.GONE; inboxPage.visibility = View.VISIBLE; renderInbox()
+    }
+    @android.annotation.SuppressLint("GestureBackNavigation")
+    @Deprecated("Legacy devices use this; Android 13+ uses OnBackInvokedDispatcher")
+    override fun onBackPressed() { if(showingChat) showInbox() else super.onBackPressed() }
     private fun startSpeech(revision: Boolean) {
         if(busy) return
         val chat = selected ?: return

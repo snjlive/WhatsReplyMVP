@@ -30,15 +30,35 @@ class ActivityTests {
         assertFalse(buttons.first { it.text.toString().startsWith("Отправить") }.isEnabled)
         controller.pause().stop().destroy()
     }
+    @Test fun inboxSearchFiltersByMessageAndOpensMatchingChat() {
+        val context = RuntimeEnvironment.getApplication()
+        HistoryStore(context).use {
+            it.add(Chat("jira","Jira"),"incoming","Payment tomorrow?")
+            it.add(Chat("alex","Alex"),"incoming","Hello")
+        }
+        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val views = descendants(controller.get().window.decorView)
+        views.filterIsInstance<EditText>().first { it.hint.toString().startsWith("Поиск") }.setText("Payment")
+        val filtered = descendants(controller.get().window.decorView).filterIsInstance<android.widget.TextView>().filter { (it.parent as? View)?.isClickable == true }.map { it.text.toString() }
+        assertTrue(filtered.any { it.contains("Jira") })
+        assertFalse(filtered.any { it.contains("Alex") })
+        val jira = descendants(controller.get().window.decorView).filterIsInstance<android.widget.TextView>().first { it.text.toString().contains("Jira") }
+        (jira.parent as View).performClick()
+        val draft = descendants(controller.get().window.decorView).filterIsInstance<EditText>().first { it.hint.toString().contains("микрофон") }
+        assertEquals(View.VISIBLE,(draft.parent as View).visibility)
+        controller.get().onBackPressed()
+        assertEquals(View.GONE,(draft.parent as View).visibility)
+        controller.pause().stop().destroy()
+    }
     @Test fun manuallyEditedDraftSurvivesActivityRecreation() {
         val context = RuntimeEnvironment.getApplication()
         HistoryStore(context).use { it.add(Chat("jira","Jira"),"incoming","Payment?") }
         val first = Robolectric.buildActivity(MainActivity::class.java).setup()
-        val edit = descendants(first.get().window.decorView).filterIsInstance<EditText>().single()
+        val edit = descendants(first.get().window.decorView).filterIsInstance<EditText>().first { it.hint.toString().contains("микрофон") }
         edit.setText("We will pay Monday")
         first.pause().stop().destroy()
         val second = Robolectric.buildActivity(MainActivity::class.java).setup()
-        assertEquals("We will pay Monday",descendants(second.get().window.decorView).filterIsInstance<EditText>().single().text.toString())
+        assertEquals("We will pay Monday",descendants(second.get().window.decorView).filterIsInstance<EditText>().first { it.hint.toString().contains("микрофон") }.text.toString())
         val voice = descendants(second.get().window.decorView).filterIsInstance<Button>().first { it.text.toString().contains("Что ответить") }
         assertTrue(voice.isEnabled)
         second.pause().stop().destroy()

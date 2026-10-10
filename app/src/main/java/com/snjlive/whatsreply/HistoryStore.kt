@@ -43,6 +43,9 @@ class HistoryStore(context: Context) : SQLiteOpenHelper(context.applicationConte
     fun latest(chat: String, kind: String): Entry? = readableDatabase.rawQuery(
         "SELECT id,chat,kind,body,time,source FROM entries WHERE chat=? AND kind=? ORDER BY time DESC,id DESC LIMIT 1",arrayOf(chat,kind)
     ).use { c -> if(c.moveToFirst()) Entry(c.getLong(0),c.getString(1),c.getString(2),c.getString(3),c.getLong(4),c.getLong(5)) else null }
+    fun matchesMessage(chat: String, query: String): Boolean = readableDatabase.rawQuery(
+        "SELECT 1 FROM entries WHERE chat=? AND instr(lower(body),lower(?)) > 0 LIMIT 1",arrayOf(chat,query)
+    ).use { it.moveToFirst() }
     fun context(chat: String): JSONArray = JSONArray().apply {
         readableDatabase.rawQuery("SELECT kind,body,time FROM entries WHERE chat=? AND kind IN ('incoming','sent') ORDER BY time DESC,id DESC LIMIT 16",arrayOf(chat)).use { c ->
             val items = mutableListOf<JSONObject>()
