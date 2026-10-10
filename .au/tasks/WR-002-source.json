@@ -1,0 +1,27 @@
+{
+  "records": [
+    {
+      "id": "recSik3Rs65sJj2iK",
+      "createdTime": "2026-10-10T12:29:45.000Z",
+      "cellValuesByFieldId": {
+        "fld226v42FcjfYbcG": "Owner tested current build successfully and approved these as the next small usability iteration before case/context infrastructure.",
+        "fld2vuzl1Jd9ZVWgD": "WR-002",
+        "fld4on8grUfLW3ITk": "AUTO-DISPATCH ENABLED after AD-016 live acceptance. Launch WR-002 automatically through AU Desk watcher; no owner relay. Write handoff/tests/APK artifact back to Blackboard; no self-approval.",
+        "fld9juWuZgO7Mw7VB": "Implement WR-002 in the existing WhatsReply repo/build line. Add recipient-language detection/preservation with explicit override, reverse bubble-history presentation to chronological oldest->newest, and auto-position to latest. Build installable APK and record tests/artifact.",
+        "fldHD0poWPmY0cEYS": "WR-002 — WHATSREPLY: AUTO RESPONSE LANGUAGE + CHAT ORDER LIKE WHATSAPP\n\nGoal:\nMake the working WhatsReply flow feel natural in daily use without changing the confirmed transport or current interaction model.\n\nOwner feedback after testing:\n1) Response language should be selected automatically from the incoming conversation.\n2) The bubble-history screen should behave like WhatsApp: newest messages at the bottom, not the top.\n\nA) Automatic response language\n- The language of the outbound draft must default to the language of the incoming WhatsApp message / active conversation, NOT to the language in which the owner gives AI instructions.\n- Example: incoming message is English, owner says in Russian “ответь, что мы заинтересованы” -> draft must be English.\n- If incoming message is Thai -> draft Thai; Russian -> Russian, etc.\n- For mixed-language or ambiguous short messages, use the dominant/recent conversation language for that contact/thread.\n- If confidence is low and there is no usable thread history, preserve the language of the most recent substantive incoming message.\n- REVISE must preserve the current draft/recipient language unless the owner explicitly asks to translate/change language.\n- Explicit owner instruction (“ответь по-русски”, “write in English”) always overrides automatic detection.\n- Do not translate names, addresses, project names, quoted text or technical terms unnecessarily.\n- Keep the existing author-profile and COMPOSE/REVISE separation from WR-001.\n\nB) Bubble history order\n- Display conversation history chronologically: oldest at top, newest at bottom.\n- Opening a chat should land at / scroll to the latest message by default.\n- New incoming/sent/draft items should append at the bottom.\n- Preserve normal scroll behavior when the user intentionally scrolls upward; do not aggressively jump to bottom while reading older messages unless a clear “new messages” behavior is used.\n- Match WhatsApp mental model as closely as possible without visual overengineering.\n\nC) Regression constraints\n- Preserve confirmed notification capture and RemoteInput send path.\n- Preserve incoming TTS, compose/revise behavior, male author profile, and existing local history.\n- No Outliner/Airtable case-linking/backend expansion in this task.",
+        "fldLqHfvyVPL8wJdO": "real",
+        "fldLrb7t9Z8p73jL4": "1. English incoming + Russian voice instruction produces an English draft.\n2. Thai incoming + Russian voice instruction produces a Thai draft.\n3. Russian incoming produces Russian by default.\n4. REVISE keeps the recipient language unless explicitly asked to translate/change it.\n5. Explicit language command overrides auto-detection.\n6. Mixed/very short incoming messages use recent thread language instead of instruction language.\n7. Bubble history is oldest -> newest, with latest at the bottom.\n8. Opening a chat shows the latest messages; new items append at bottom.\n9. User can scroll upward without forced snapping to bottom during normal reading.\n10. Existing WhatsApp notification/RemoteInput transport and WR-001 interaction rules still pass regression tests.\n11. Build/tests pass; tested commit/APK artifact recorded; no builder self-approval.",
+        "fldNI1qenQUGcL5dI": "WR",
+        "fldPxKBdQ6W8LDCf7": "reasoning",
+        "fldVPNUh5WJNus3TM": "WR-002: auto recipient language from incoming/thread; explicit override; newest bubbles at bottom with WhatsApp-like scroll.",
+        "fldXe7fiGERGYLzOJ": "Do not infer output language from the owner's spoken instruction language. Preserve WR-001 semantics and transport. Keep scope small.",
+        "fldo7Rsz3IrhrR9cJ": "ready_for_build",
+        "fldqIh258GMoyWaEQ": "{\"task_id\":\"WR-002\",\"request_id\":\"wr002-pending-auto-dispatch-20261010\",\"type\":\"build\",\"source_session\":\"WhatsReply Reasoning\",\"state\":\"launch_requested\",\"launch_requested\":true,\"executor\":\"local Codex / ChatGPT\",\"failure_reason\":\"\",\"policy_version\":\"0.3.1\",\"updated_at\":\"2026-10-10T12:43:50.180Z\"}",
+        "flduKyOWZH9RqaI6h": "WhatsReply current repo/build"
+      }
+    }
+  ],
+  "metadata": {
+    "totalRecordCount": 1
+  }
+}

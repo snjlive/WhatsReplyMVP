@@ -1,0 +1,11 @@
+{
+  "fld9juWuZgO7Mw7VB": "WR-002 implemented and published from isolated detached worktree. Tested source commit ac5d9376358859575b71cbbf884f82f3627918bb, APK 0.5/versionCode 5. COMPOSE follows incoming/recent incoming language evidence; REVISE retains draft language; explicit language requests override. Incoming-only language_context survives revision without old drafts. Bubble history includes latest incoming in oldest-to-newest order, opens at bottom, follows new items only when already at bottom, preserves reading position. Notification/RemoteInput and local schema unchanged. Server activation/live language checks pending: Render UI is blank under native automation; owner asked to deploy latest commit. No builder self-approval.",
+  "fld0aeeQs7Vx1EQV1": "assembleDebug + lintDebug PASS; 26 Android test cases (APIs 28/35), including chronological append, open-at-bottom and scroll preservation plus existing transport/TTS/profile/history regressions. 15 backend tests PASS with local fake provider, including bounded incoming-only language evidence and revision isolation. Live multilingual acceptance and physical-device QA pending deployment; fake tests do not prove model language behavior.",
+  "fldtcskFwOohRun0B": "{\"commit\":\"ac5d9376358859575b71cbbf884f82f3627918bb\",\"apk\":\"https://github.com/snjlive/WhatsReplyMVP/raw/refs/heads/codex/mvp-0.2/downloads/WhatsReplyMVP-0.5-debug.apk\",\"sha256\":\"b8589946d0aa47bb4f1a5535530c9faa71e8856907afb4c107681ee67af450a6\"}",
+  "fld4on8grUfLW3ITk": "Implementation handled directly in this owner-authorized chat; do not duplicate build. Render Manual Deploy latest commit, then live EN/TH/RU, revise, override and ambiguous/mixed language checks. Install 0.5 over current app; physical scroll/TTS/send QA and Reasoning/user review on exact commit/digest remain pending.",
+  "fldPxKBdQ6W8LDCf7": "codex",
+  "fldEEnZZdUU3Y9Aea": "2026-10-10T12:46:00.135Z",
+  "fldo7Rsz3IrhrR9cJ": "requested",
+  "flduKyOWZH9RqaI6h": "",
+  "fldVPNUh5WJNus3TM": "012d7805c5c4339146cb829451f6449ff37b1a2520fe24b0edc371eb5e23a658"
+}
