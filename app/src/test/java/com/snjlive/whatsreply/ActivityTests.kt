@@ -62,6 +62,49 @@ class ActivityTests {
         assertEquals("male",AiSettings(context).authorProfile.getString("gender"))
         controller.pause().stop().destroy()
     }
+    @Test fun historyIncludesLatestIncomingAndAppendsNewEntriesChronologically() {
+        val context=RuntimeEnvironment.getApplication()
+        val chat=Chat("order","Order test")
+        HistoryStore(context).use {
+            val id=it.add(chat,"incoming","First message",time=1)
+            it.add(chat,"sent","Second message",time=2,source=id)
+            it.add(chat,"incoming","Third message",time=3)
+        }
+        val controller=Robolectric.buildActivity(MainActivity::class.java).setup()
+        fun bubbles()=descendants(controller.get().window.decorView).filterIsInstance<android.widget.TextView>()
+            .map { it.text.toString() }.filter { it.startsWith("Входящее •") || it.startsWith("Передано в WhatsApp •") || it.startsWith("Черновик •") }
+        assertEquals(listOf("First message","Second message","Third message"),bubbles().map { it.substringAfter("\n") })
+        HistoryStore(context).use { it.add(chat,"draft","Fourth message",time=4) }
+        ReplyState.update()
+        assertEquals("Fourth message",bubbles().last().substringAfter("\n"))
+        controller.pause().stop().destroy()
+    }
+    @Test fun openingScrollsToLatestButIncomingPreservesReadingPosition() {
+        val context=RuntimeEnvironment.getApplication(); val chat=Chat("scroll","Scroll test")
+        HistoryStore(context).use { db -> repeat(30) { db.add(chat,"incoming","Message $it",time=it.toLong()+1) } }
+        val controller=Robolectric.buildActivity(MainActivity::class.java).setup()
+        val field=MainActivity::class.java.getDeclaredField("historyScroll").apply { isAccessible=true }
+        val scroll=field.get(controller.get()) as android.widget.ScrollView
+        fun layoutScroll() {
+            scroll.measure(View.MeasureSpec.makeMeasureSpec(500,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(200,View.MeasureSpec.EXACTLY))
+            scroll.layout(0,0,500,200)
+        }
+        layoutScroll()
+        val card=descendants(controller.get().window.decorView).filterIsInstance<android.widget.TextView>()
+            .first { it.text.toString().contains("Scroll test") && (it.parent as View).isClickable }
+        (card.parent as View).performClick(); layoutScroll()
+        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+        assertTrue(scroll.scrollY > 0)
+        scroll.scrollTo(0,100)
+        HistoryStore(context).use { it.add(chat,"incoming","New arrival",time=100) }
+        ReplyState.update(); layoutScroll()
+        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+        assertEquals(100,scroll.scrollY)
+        ReplyState.update()
+        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+        assertEquals(100,scroll.scrollY)
+        controller.pause().stop().destroy()
+    }
     @Test fun manuallyEditedDraftSurvivesActivityRecreation() {
         val context = RuntimeEnvironment.getApplication()
         HistoryStore(context).use { it.add(Chat("jira","Jira"),"incoming","Payment?") }

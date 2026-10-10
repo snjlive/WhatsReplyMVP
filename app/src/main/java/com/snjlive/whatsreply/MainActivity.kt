@@ -31,6 +31,9 @@ class MainActivity : Activity() {
     private lateinit var send: Button
     private lateinit var listen: Button
     private lateinit var listenIncoming: Button
+    private lateinit var historyScroll: ScrollView
+    private var historyIdentity = ""
+    private var openAtLatest = true
     private lateinit var history: LinearLayout
     private lateinit var permissions: Button
     private lateinit var inboxPage: LinearLayout
@@ -91,14 +94,15 @@ class MainActivity : Activity() {
         chatHeader.addView(button("‹ Чаты") { showInbox() },LinearLayout.LayoutParams(dp(100),-2))
         contact = label("",19f).apply { setTypeface(null,Typeface.BOLD) }
         chatHeader.addView(contact,LinearLayout.LayoutParams(0,-2,1f)); chatPage.addView(chatHeader)
-        val scroll = ScrollView(this)
+        historyScroll = ScrollView(this)
         val body = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         history = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         incoming = label("",16f).apply { setPadding(dp(14),dp(12),dp(14),dp(12)); background = surface(Color.WHITE) }
         incoming.movementMethod = android.text.method.ScrollingMovementMethod()
-        body.addView(label("Последнее входящее",14f)); body.addView(incoming,LinearLayout.LayoutParams(-1,dp(112)))
-        body.addView(label("Переписка · последние сообщения сверху",13f)); body.addView(history)
-        scroll.addView(body); chatPage.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
+        
+        body.addView(label("Переписка",14f)); body.addView(history)
+        chatPage.addView(label("Последнее входящее",14f)); chatPage.addView(incoming,LinearLayout.LayoutParams(-1,dp(112)))
+        historyScroll.addView(body); chatPage.addView(historyScroll,LinearLayout.LayoutParams(-1,0,1f))
         chatPage.addView(label("Ваш ответ · текст можно редактировать",13f))
         draft = EditText(this).apply {
             hint = "Нажмите микрофон и скажите, что ответить"; textSize = 17f; minLines = 2; maxLines = 4
@@ -199,8 +203,16 @@ class MainActivity : Activity() {
         if(showingChat && last != null) getPreferences(MODE_PRIVATE).edit().putLong("read:${chat?.id}",last.id).apply()
         if(draft.text.isNullOrBlank()) source = last?.id ?: 0L
         if(last != null && source != last.id && draft.text.isNotBlank()) status.text = "Пришло новое сообщение — подготовьте ответ заново"
+        val entries = chat?.let { store.entries(it.id,80) }.orEmpty()
+        val identity = "${chat?.id}:${entries.lastOrNull()?.id}:${entries.size}"
+        val previousY = historyScroll.scrollY
+        val atBottom = !historyScroll.canScrollVertically(1)
+        val scrollToLatest = openAtLatest || (identity != historyIdentity && atBottom)
+        val historyChanged = identity != historyIdentity
+        historyIdentity = identity; openAtLatest = false
+        if(historyChanged) {
         history.removeAllViews()
-        chat?.let { store.entries(it.id,80).filter { entry -> entry.id != last?.id }.reversed().forEach { entry ->
+        entries.forEach { entry ->
             val kind = when(entry.kind) { "incoming" -> "Входящее"; "draft" -> "Черновик"; else -> "Передано в WhatsApp" }
             val bubble = label("$kind • ${time(entry.time)}\n${entry.text}",16f).apply {
                 setPadding(dp(12),dp(10),dp(12),dp(10))
@@ -210,7 +222,12 @@ class MainActivity : Activity() {
             history.addView(bubble,LinearLayout.LayoutParams(-1,-2).apply {
                 setMargins(if(entry.kind == "incoming") 0 else dp(24),dp(4),if(entry.kind == "incoming") dp(24) else 0,dp(4))
             })
-        } }
+        }
+        }
+        if(historyChanged || scrollToLatest) historyScroll.post {
+            if(scrollToLatest) historyScroll.fullScroll(View.FOCUS_DOWN)
+            else historyScroll.scrollTo(0,previousY)
+        }
         renderInbox()
         renderButtons()
     }
@@ -258,7 +275,7 @@ class MainActivity : Activity() {
                 isClickable = true; isFocusable = true
                 setOnClickListener {
                     if(busy) return@setOnClickListener
-                    persistDraft(); selected = chat; restoreDraft(); showingChat = true
+                    persistDraft(); selected = chat; restoreDraft(); showingChat = true; openAtLatest = true
                     last?.let { prefs.edit().putLong("read:${chat.id}",it.id).apply() }
                     inboxPage.visibility = View.GONE; chatPage.visibility = View.VISIBLE
                     status.text = if(hasDraft) "Черновик готов" else "Скажите по-русски, что ответить"
@@ -325,6 +342,9 @@ class MainActivity : Activity() {
         val historyContext = if(revision) org.json.JSONArray().put(JSONObject().put("kind","incoming").put("text",original)) else store.context(chat.id)
         val payload = JSONObject().put("mode",if(revision) "revise" else "compose")
             .put("incoming",original).put("author_profile",settings.authorProfile)
+            .put("language_context",org.json.JSONArray().apply {
+                store.entries(chat.id,80).filter { it.kind == "incoming" }.takeLast(16).forEach { put(it.text.take(4000)) }
+            })
             .put("contact",chat.name.take(200)).put("history",historyContext)
             .put("instruction",instruction.take(4000)).put("draft",existing.take(12000))
         busy = true; status.text = "Инструкция: $instruction"; renderButtons()

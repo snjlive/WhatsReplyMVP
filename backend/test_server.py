@@ -96,6 +96,24 @@ class ProxyTests(unittest.TestCase):
         data=server.validate({**PAYLOAD,"author_profile":{"gender":"female"},"draft":"obsolete","mode":"compose"})
         self.assertEqual(data["draft"],"")
         self.assertEqual(data["author_profile"],server.AUTHOR)
+    def test_language_evidence_survives_revision_without_old_drafts(self):
+        data = server.validate({**PAYLOAD, "draft":"We are interested.", "instruction":"Сделай короче",
+            "incoming":"OK", "language_context":["Could you confirm the viewing tomorrow?", "OK"]})
+        self.assertEqual(data["mode"],"revise")
+        self.assertEqual(data["language_context"],["Could you confirm the viewing tomorrow?", "OK"])
+        self.assertEqual(data["history"],[{"kind":"incoming","text":"OK"}])
+        with patch.object(server,"provider",side_effect=["Interested.",json.dumps({"safe":True,"text":"Interested."})]) as call:
+            server.generate(data)
+            for args in call.call_args_list:
+                self.assertEqual(args.args[0]["language_context"],data["language_context"])
+                self.assertEqual(args.args[0]["draft"],"We are interested.")
+    def test_legacy_language_context_comes_only_from_incoming(self):
+        data=server.validate({**PAYLOAD,"history":[{"kind":"incoming","text":"สนใจไหมครับ"},
+            {"kind":"sent","text":"Old Russian response"},{"kind":"incoming","text":"OK"}]})
+        self.assertEqual(data["language_context"],["สนใจไหมครับ","OK"])
+    def test_language_context_is_bounded_and_typed(self):
+        for context in ("English", [None], ["x"*4001], ["Hello"]*17):
+            with self.assertRaises(ValueError): server.validate({**PAYLOAD,"language_context":context})
     def test_daily_limit(self):
         with patch.dict(os.environ, {"DAILY_REQUEST_LIMIT": "1"}), patch.object(server, "generate", return_value="reply"):
             self.assertEqual(self.request()[0], 200)
