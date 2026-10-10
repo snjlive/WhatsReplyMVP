@@ -15,6 +15,12 @@ import javax.net.ssl.HttpsURLConnection
 
 class AiSettings(context: Context) {
     private val prefs = context.getSharedPreferences("ai",Context.MODE_PRIVATE)
+    val authorProfile: JSONObject
+        get() {
+            if(!prefs.contains("author_gender")) prefs.edit().putString("author_gender","male").putString("author_organization","Lighthouse").apply()
+            return JSONObject().put("gender",prefs.getString("author_gender","male"))
+                .put("organization",prefs.getString("author_organization","Lighthouse"))
+        }
     var endpoint: String
         get() = prefs.getString("endpoint","").orEmpty()
         set(value) { prefs.edit().putString("endpoint",value).apply() }

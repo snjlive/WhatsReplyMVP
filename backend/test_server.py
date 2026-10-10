@@ -39,6 +39,8 @@ class ProxyTests(unittest.TestCase):
                 self.assertEqual(sent["draft"], draft)
                 self.assertNotIn("unexpected", sent)
                 self.assertEqual(sent["history"], [{"kind": "incoming", "text": "Please confirm payment"}])
+                self.assertEqual(sent["mode"], "revise" if draft else "compose")
+                self.assertEqual(sent["author_profile"]["gender"],"male")
     def test_invalid_history_rejected(self):
         for history in ([], [{"kind": "draft", "text": "x"}], [{"kind": "incoming", "text": "x" * 4001}]):
             with patch.object(server, "generate") as provider:
@@ -66,10 +68,34 @@ class ProxyTests(unittest.TestCase):
             def read(self):
                 return json.dumps({"status": "completed", "output": [{"type": "message", "content": [{"type": "output_text", "text": "Thai reply"}]}]}).encode()
         with patch.object(server.urllib.request, "urlopen", return_value=Response()) as request:
-            self.assertEqual(server.generate(server.validate(PAYLOAD)), "Thai reply")
+            self.assertEqual(server.provider(server.validate(PAYLOAD), server.COMPOSE), "Thai reply")
             body = json.loads(request.call_args.args[0].data)
             self.assertFalse(body["store"])
-            self.assertEqual(body["instructions"], server.SYSTEM)
+            self.assertEqual(body["instructions"], server.COMPOSE)
+    def test_revision_drops_previous_context_and_uses_original_incoming(self):
+        data = server.validate({**PAYLOAD, "mode":"revise", "draft":"Я получила оплату.",
+            "incoming":"Оплатили?", "instruction":"Я мужчина, исправь род",
+            "history":[{"kind":"incoming","text":"Старое"},{"kind":"sent","text":"Old failed reply"}]})
+        self.assertEqual(data["history"],[{"kind":"incoming","text":"Оплатили?"}])
+        self.assertEqual(data["instruction"],"Я мужчина, исправь род")
+        with patch.object(server,"provider",side_effect=["Я получил оплату.",json.dumps({"safe":True,"text":"Я получил оплату."})]) as provider:
+            self.assertEqual(server.generate(data),"Я получил оплату.")
+            self.assertEqual(provider.call_args_list[0].args[1],server.REVISE)
+            self.assertEqual(provider.call_args_list[1].args[1],server.CHECK)
+    def test_final_review_repairs_candidate_and_rejects_unsafe(self):
+        for instruction in ("Сделай мягче","Сделай короче","Сделай теплее"):
+            data=server.validate({**PAYLOAD,"draft":"Оплатите сегодня.","instruction":instruction})
+            with patch.object(server,"provider",side_effect=["candidate",json.dumps({"safe":True,"text":"Пожалуйста, оплатите сегодня."})]):
+                self.assertEqual(server.generate(data),"Пожалуйста, оплатите сегодня.")
+        for result in ({"safe":False,"text":""},{"safe":True,"text":"As an AI I changed this"},{"safe":True,"text":""}):
+            with patch.object(server,"provider",side_effect=["candidate",json.dumps(result)]):
+                with self.assertRaises(ValueError): server.generate(server.validate(PAYLOAD))
+    def test_modes_and_profile_are_enforced(self):
+        for mode in ("oops","revise"):
+            with self.assertRaises(ValueError): server.validate({**PAYLOAD,"mode":mode})
+        data=server.validate({**PAYLOAD,"author_profile":{"gender":"female"},"draft":"obsolete","mode":"compose"})
+        self.assertEqual(data["draft"],"")
+        self.assertEqual(data["author_profile"],server.AUTHOR)
     def test_daily_limit(self):
         with patch.dict(os.environ, {"DAILY_REQUEST_LIMIT": "1"}), patch.object(server, "generate", return_value="reply"):
             self.assertEqual(self.request()[0], 200)

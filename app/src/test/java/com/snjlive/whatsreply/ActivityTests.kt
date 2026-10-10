@@ -50,6 +50,18 @@ class ActivityTests {
         assertEquals(View.GONE,(draft.parent as View).visibility)
         controller.pause().stop().destroy()
     }
+    @Test fun incomingAudioAndMatchedMessageContainers() {
+        val context=RuntimeEnvironment.getApplication()
+        HistoryStore(context).use { it.add(Chat("jira","Jira"),"incoming","Hello") }
+        val controller=Robolectric.buildActivity(MainActivity::class.java).setup()
+        val views=descendants(controller.get().window.decorView)
+        val incoming=views.filterIsInstance<android.widget.TextView>().first { it.text.toString().endsWith("\nHello") }
+        val answer=views.filterIsInstance<EditText>().first { it.hint.toString().contains("микрофон") }
+        assertEquals(answer.layoutParams.height,incoming.layoutParams.height)
+        assertTrue(views.filterIsInstance<Button>().any { it.contentDescription == "Прослушать входящее" })
+        assertEquals("male",AiSettings(context).authorProfile.getString("gender"))
+        controller.pause().stop().destroy()
+    }
     @Test fun manuallyEditedDraftSurvivesActivityRecreation() {
         val context = RuntimeEnvironment.getApplication()
         HistoryStore(context).use { it.add(Chat("jira","Jira"),"incoming","Payment?") }

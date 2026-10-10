@@ -30,6 +30,7 @@ class MainActivity : Activity() {
     private lateinit var revise: Button
     private lateinit var send: Button
     private lateinit var listen: Button
+    private lateinit var listenIncoming: Button
     private lateinit var history: LinearLayout
     private lateinit var permissions: Button
     private lateinit var inboxPage: LinearLayout
@@ -94,7 +95,8 @@ class MainActivity : Activity() {
         val body = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         history = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         incoming = label("",16f).apply { setPadding(dp(14),dp(12),dp(14),dp(12)); background = surface(Color.WHITE) }
-        body.addView(label("Последнее входящее",13f)); body.addView(incoming)
+        incoming.movementMethod = android.text.method.ScrollingMovementMethod()
+        body.addView(label("Последнее входящее",14f)); body.addView(incoming,LinearLayout.LayoutParams(-1,dp(112)))
         body.addView(label("Переписка · последние сообщения сверху",13f)); body.addView(history)
         scroll.addView(body); chatPage.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
         chatPage.addView(label("Ваш ответ · текст можно редактировать",13f))
@@ -103,14 +105,20 @@ class MainActivity : Activity() {
             setPadding(dp(14),dp(10),dp(14),dp(10)); background = surface(Color.WHITE)
             gravity = android.view.Gravity.TOP; inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE or android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
         }
-        chatPage.addView(draft)
+        chatPage.addView(draft,LinearLayout.LayoutParams(-1,dp(112)))
         status = label("",13f); status.setTextColor(teal); chatPage.addView(status)
         val audio = LinearLayout(this)
-        listen = button("▶ Слушать") { speak() }
+        listen = button("▶ Ответ") { speak() }.apply { contentDescription = "Прослушать ответ" }
+        listenIncoming = button("▶ Входящее") {
+            selected?.let { store.latest(it.id,"incoming") }?.let { speakText(it.text) }
+        }.apply { contentDescription = "Прослушать входящее" }
         revise = button("🎙 Правка") { startSpeech(true) }
-        audio.addView(listen,LinearLayout.LayoutParams(0,-2,1f)); audio.addView(revise,LinearLayout.LayoutParams(0,-2,1f))
-        audio.addView(button("⌨ Текст") { textInstruction(draft.text.isNotBlank()) }.apply { contentDescription = "Инструкция текстом" },LinearLayout.LayoutParams(0,-2,1f))
+        audio.addView(listenIncoming,LinearLayout.LayoutParams(0,-2,1f)); audio.addView(listen,LinearLayout.LayoutParams(0,-2,1f))
         chatPage.addView(audio)
+        val editing = LinearLayout(this)
+        editing.addView(revise,LinearLayout.LayoutParams(0,-2,1f))
+        editing.addView(button("⌨ Текст") { textInstruction(draft.text.isNotBlank()) }.apply { contentDescription = "Инструкция текстом" },LinearLayout.LayoutParams(0,-2,1f))
+        chatPage.addView(editing)
         val actions = LinearLayout(this)
         voice = button("🎙 Что ответить?") { startSpeech(false) }.apply {
             backgroundTintList = android.content.res.ColorStateList.valueOf(teal); setTextColor(Color.WHITE); minHeight = dp(60)
@@ -212,6 +220,7 @@ class MainActivity : Activity() {
         voice.isEnabled = !busy && chat != null
         revise.isEnabled = !busy && text.isNotBlank()
         listen.isEnabled = ttsReady && text.isNotBlank()
+        listenIncoming.isEnabled = ttsReady && chat?.let { store.latest(it.id,"incoming") } != null
         val target = chat?.let { ReplyState.targets[it.id] }
         send.isEnabled = !busy && text.isNotBlank() && text.length <= 12000 && hasAccess() && ReplyState.connected && target?.incoming == source && chat?.let { store.latest(it.id,"incoming")?.id } == source
         send.text = "Отправить ➤"
@@ -311,7 +320,12 @@ class MainActivity : Activity() {
         if(store.latest(chat.id,"incoming")?.id != incomingId) { status.text = "Пришло новое сообщение. Повторите инструкцию"; return }
         val endpoint = settings.endpoint; val token = settings.token
         if(endpoint.isBlank() || token.isBlank()) { status.text = "AI ещё не подключён. Инструкция сохранена для повторного запуска"; pendingInstruction = Triple(chat,incomingId,instruction to existing); configureAi(); return }
-        val payload = JSONObject().put("contact",chat.name.take(200)).put("history",store.context(chat.id))
+        val revision = existing.isNotBlank()
+        val original = store.latest(chat.id,"incoming")?.text.orEmpty().take(4000)
+        val historyContext = if(revision) org.json.JSONArray().put(JSONObject().put("kind","incoming").put("text",original)) else store.context(chat.id)
+        val payload = JSONObject().put("mode",if(revision) "revise" else "compose")
+            .put("incoming",original).put("author_profile",settings.authorProfile)
+            .put("contact",chat.name.take(200)).put("history",historyContext)
             .put("instruction",instruction.take(4000)).put("draft",existing.take(12000))
         busy = true; status.text = "Инструкция: $instruction"; renderButtons()
         val appContext = applicationContext
@@ -353,7 +367,10 @@ class MainActivity : Activity() {
         } }; dialog.show()
     }
     private fun speak() {
-        val text = draft.text.toString().trim(); if(text.isBlank() || !ttsReady) return
+        speakText(draft.text.toString().trim())
+    }
+    private fun speakText(text: String) {
+        if(text.isBlank() || !ttsReady) return
         val language = when {
             text.any { it in '\u0E00'..'\u0E7F' } -> Locale.forLanguageTag("th-TH")
             text.any { it in '\u0400'..'\u04FF' } -> Locale.forLanguageTag("ru-RU")
