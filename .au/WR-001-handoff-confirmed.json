@@ -1,0 +1,11 @@
+{
+  "fld9juWuZgO7Mw7VB": "WR-001 built at 3381190 (APK 0.4/code4). Explicit compose/revise; revision only original incoming/current draft/latest instruction; persistent male/Lighthouse profile; strict final model review plus fail-closed leakage guard; matched 112dp incoming/answer and incoming TTS. RemoteInput/capture unchanged. Render still OLD backend (invalid-mode probe returned 200); manual deploy needed before live acceptance. No self-approval; physical/independent QA pending.",
+  "fld0aeeQs7Vx1EQV1": "PASS: assembleDebug, lintDebug, 22 Android cases API28/35; 12 backend fake-provider tests. Tests cover context isolation, author/mode validation, unsafe final-check rejection, matched containers/incoming-audio control, existing RemoteInput safeguards. Real requests returned male correction, but OLD deployed contract; new backend live checks pending.",
+  "fldtcskFwOohRun0B": "[\"https://github.com/snjlive/WhatsReplyMVP/raw/refs/heads/codex/mvp-0.2/downloads/WhatsReplyMVP-0.4-debug.apk\",\"https://github.com/snjlive/WhatsReplyMVP/commit/3381190\",\"https://github.com/snjlive/WhatsReplyMVP/blob/codex/mvp-0.2/.au/artifacts/WR-001/HANDOFF.md\"]",
+  "fld4on8grUfLW3ITk": "Activate Render 3381190 via Manual Deploy -> Deploy latest commit; verify new mode validation and live compose/revise/self-check. Install 0.4 over existing; user/independent test incoming TTS, gender revision/meta leakage, one-hand UI and WhatsApp send. Reasoning reviews exact digest; not approved.",
+  "fldPxKBdQ6W8LDCf7": "codex",
+  "fldEEnZZdUU3Y9Aea": "2026-10-10T10:50:03.369Z",
+  "fldo7Rsz3IrhrR9cJ": "requested",
+  "flduKyOWZH9RqaI6h": "",
+  "fldVPNUh5WJNus3TM": "c54da5a6dae2d00c586e9b9c23b6428918063402d262054e9a2225bf77dfc740"
+}
