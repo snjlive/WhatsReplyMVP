@@ -1,0 +1,5 @@
+# WR-004 implementation
+
+WhatsReply 0.6: Settings → Interface offers persistent Classic/Modern Experimental. Existing users default to Classic. Both presentations share existing widgets, history store, callbacks, AI, speech and RemoteInput logic; switching neither recreates services nor duplicates calls and preserves unsent editor text. Modern uses dark graphite/navy, restrained teal, regular typography, rounded real-data cards, search/waiting filters and chronological conversation history. Audio/edit/voice/send action rows stay fixed below the scrollable content; selected draft remains editable. System icon contrast adapts and Classic styles restore on switching back.
+
+Builder checks pass; installable debug APK produced, same application ID/signing certificate. Independent phone visual/functionality review pending, no self-approval. AD-021 not modified. Previous failed auto-dispatch record/worktree retained; this completion is owner-authorized manual continuation in existing WA Build.

@@ -1,0 +1,20 @@
+test_authentication_rejects_before_calling_provider (test_server.ProxyTests) ... ok
+test_daily_limit (test_server.ProxyTests) ... ok
+test_final_review_repairs_candidate_and_rejects_unsafe (test_server.ProxyTests) ... ok
+test_generation_and_revision_pass_only_validated_context (test_server.ProxyTests) ... ok
+test_invalid_history_rejected (test_server.ProxyTests) ... ok
+test_language_context_is_bounded_and_typed (test_server.ProxyTests) ... ok
+test_language_evidence_survives_revision_without_old_drafts (test_server.ProxyTests) ... ok
+test_legacy_language_context_comes_only_from_incoming (test_server.ProxyTests) ... ok
+test_missing_provider_key_is_explicit (test_server.ProxyTests) ... ok
+test_modes_and_profile_are_enforced (test_server.ProxyTests) ... ok
+test_provider_error_does_not_leak_credentials (test_server.ProxyTests) ... ok
+test_provider_response_and_stateless_request (test_server.ProxyTests) ... ok
+test_rate_limit (test_server.ProxyTests) ... ok
+test_revision_drops_previous_context_and_uses_original_incoming (test_server.ProxyTests) ... ok
+test_wrong_path (test_server.ProxyTests) ... ok
+
+----------------------------------------------------------------------
+Ran 15 tests in 7.592s
+
+OK

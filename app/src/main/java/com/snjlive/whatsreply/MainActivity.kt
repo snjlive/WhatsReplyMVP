@@ -53,18 +53,29 @@ class MainActivity : Activity() {
     private var speechRevision = false
     private var speechDraft = ""
     private val executor = Executors.newSingleThreadExecutor()
+    private var modern = false
+    private var classicSystemUi = 0
+    private lateinit var root: LinearLayout
+    private val classicChildren = mutableListOf<View>()
+    private var modernScroll: ScrollView? = null
+    private data class ClassicStyle(val background: android.graphics.drawable.Drawable?, val colors: android.content.res.ColorStateList?, val size: Float?, val face: Typeface?, val hints: android.content.res.ColorStateList?, val tint: android.content.res.ColorStateList?)
+    private val classicStyles = mutableMapOf<View,ClassicStyle>()
+    private val dark = Color.rgb(15,23,34)
+    private val cardColor get() = if(modern) Color.rgb(28,40,53) else Color.WHITE
+    private val replyColor get() = if(modern) Color.rgb(24,62,57) else Color.rgb(222,242,236)
     private val teal = Color.rgb(0,105,92)
     private fun dp(n: Int) = (n * resources.displayMetrics.density).toInt()
     private fun label(value: String, size: Float = 16f) = TextView(this).apply {
-        text = value; textSize = size; setTextColor(Color.rgb(24,44,43)); setPadding(0,dp(6),0,dp(6))
+        text = value; textSize = if(modern) size.coerceAtLeast(14f) else size; setTextColor(if(modern) Color.rgb(229,237,242) else Color.rgb(24,44,43)); setPadding(0,dp(6),0,dp(6))
     }
     private fun button(value: String, action: () -> Unit) = Button(this).apply {
         text = value; isAllCaps = false; minHeight = dp(54); textSize = 16f; setOnClickListener { action() }
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        classicSystemUi = window.decorView.systemUiVisibility
         store = HistoryStore(this); settings = AiSettings(this)
-        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(Color.rgb(245,247,249)) }
+        root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(Color.rgb(245,247,249)) }
         root.setOnApplyWindowInsetsListener { v, i -> v.setPadding(dp(16),i.systemWindowInsetTop,dp(16),i.systemWindowInsetBottom); i }
         val header = LinearLayout(this).apply { gravity = android.view.Gravity.CENTER_VERTICAL }
         header.addView(label("WhatsReply",26f).apply { setTypeface(null,Typeface.BOLD) },LinearLayout.LayoutParams(0,-2,1f))
@@ -141,6 +152,9 @@ class MainActivity : Activity() {
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { renderInbox() }
             override fun afterTextChanged(s: android.text.Editable?) = Unit
         })
+        classicChildren.addAll((0 until chatPage.childCount).map { chatPage.getChildAt(it) })
+        rememberClassic(root)
+        setInterface(getPreferences(MODE_PRIVATE).getBoolean("modernInterface",false))
         tts = TextToSpeech(this) { result -> runOnUiThread { ttsReady = result == TextToSpeech.SUCCESS; renderButtons() } }
         val savedId = savedInstanceState?.getString("chat") ?: getPreferences(MODE_PRIVATE).getString("selected",null)
         selected = store.chats().firstOrNull { it.id == savedId } ?: store.chats().firstOrNull()
@@ -216,7 +230,7 @@ class MainActivity : Activity() {
             val kind = when(entry.kind) { "incoming" -> "Входящее"; "draft" -> "Черновик"; else -> "Передано в WhatsApp" }
             val bubble = label("$kind • ${time(entry.time)}\n${entry.text}",16f).apply {
                 setPadding(dp(12),dp(10),dp(12),dp(10))
-                background = surface(if(entry.kind == "incoming") Color.WHITE else Color.rgb(222,242,236))
+                background = surface(if(entry.kind == "incoming") cardColor else replyColor)
                 setTextIsSelectable(true)
             }
             history.addView(bubble,LinearLayout.LayoutParams(-1,-2).apply {
@@ -241,6 +255,7 @@ class MainActivity : Activity() {
         val target = chat?.let { ReplyState.targets[it.id] }
         send.isEnabled = !busy && text.isNotBlank() && text.length <= 12000 && hasAccess() && ReplyState.connected && target?.incoming == source && chat?.let { store.latest(it.id,"incoming")?.id } == source
         send.text = "Отправить ➤"
+        send.alpha = if(modern && !send.isEnabled) 0.45f else 1f
         send.contentDescription = "Отправить ответ ${chat?.name.orEmpty()}"
         revise.visibility = if(text.isBlank()) View.GONE else View.VISIBLE
         listen.visibility = if(text.isBlank()) View.GONE else View.VISIBLE
@@ -271,7 +286,8 @@ class MainActivity : Activity() {
             val hasDraft = savedDraft != null && savedDraft.source == last?.id && (sent == null || savedDraft.id > sent.id)
             val unread = last != null && last.id > prefs.getLong("read:${chat.id}",0)
             val card = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL; setPadding(dp(14),dp(12),dp(14),dp(12)); background = surface(Color.WHITE)
+                orientation = LinearLayout.VERTICAL; setPadding(dp(14),dp(12),dp(14),dp(12)); background = surface(cardColor)
+                if(modern) elevation = dp(2).toFloat()
                 isClickable = true; isFocusable = true
                 setOnClickListener {
                     if(busy) return@setOnClickListener
@@ -282,9 +298,9 @@ class MainActivity : Activity() {
                     render()
                 }
             }
-            card.addView(label((if(unread) "● " else "") + chat.name,18f).apply { setTypeface(null,Typeface.BOLD) })
+            card.addView(label((if(unread) "● " else "") + chat.name,18f).apply { setTypeface(null,if(modern) Typeface.NORMAL else Typeface.BOLD) })
             card.addView(label(last?.text.orEmpty(),16f).apply { maxLines = 2; ellipsize = android.text.TextUtils.TruncateAt.END })
-            card.addView(label("${last?.let { time(it.time) }.orEmpty()} · ${if(hasDraft) "Черновик" else if(waiting(chat)) "Ждёт ответа" else "Ответ передан"}",13f).apply { setTextColor(teal) })
+            card.addView(label("${last?.let { time(it.time) }.orEmpty()} · ${if(hasDraft) "Черновик" else if(waiting(chat)) "Ждёт ответа" else "Ответ передан"}",13f).apply { setTextColor(if(modern) Color.rgb(115,211,187) else teal) })
             chatRows.addView(card,LinearLayout.LayoutParams(-1,-2).apply { setMargins(0,dp(5),0,dp(5)) })
         }
     }
@@ -368,8 +384,65 @@ class MainActivity : Activity() {
         }
     }
     private var pendingInstruction: Triple<Chat,Long,Pair<String,String>>? = null
+    // Presentation changes reuse the exact widgets/actions; no lifecycle restart or state copy.
+    private fun rememberClassic(view: View) {
+        val text = view as? TextView
+        classicStyles[view] = ClassicStyle(view.background,text?.textColors,text?.textSize,text?.typeface,text?.hintTextColors,view.backgroundTintList)
+        if(view is android.view.ViewGroup) (0 until view.childCount).forEach { rememberClassic(view.getChildAt(it)) }
+    }
+    private fun setInterface(value: Boolean) {
+        modern = value
+        getPreferences(MODE_PRIVATE).edit().putBoolean("modernInterface",value).apply()
+        modernScroll?.let { scroll ->
+            (scroll.getChildAt(0) as LinearLayout).removeAllViews()
+            chatPage.removeView(scroll)
+        }
+        modernScroll = null
+        classicChildren.forEach { (it.parent as? android.view.ViewGroup)?.removeView(it) }
+        if(modern) {
+            chatPage.addView(classicChildren.first())
+            val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            classicChildren.drop(1).dropLast(3).forEach { child ->
+                content.addView(child, if(child === historyScroll) LinearLayout.LayoutParams(-1,dp(260)) else child.layoutParams)
+            }
+            modernScroll = ScrollView(this).apply { isFillViewport = true; addView(content) }
+            chatPage.addView(modernScroll,LinearLayout.LayoutParams(-1,0,1f))
+            classicChildren.takeLast(3).forEach { chatPage.addView(it) }
+        } else {
+            classicChildren.forEach { chatPage.addView(it) }
+            historyScroll.layoutParams = LinearLayout.LayoutParams(-1,0,1f)
+        }
+        classicStyles.forEach { (view, original) ->
+            view.background = original.background
+            view.backgroundTintList = original.tint
+            if(view is TextView) {
+                original.colors?.let { view.setTextColor(it) }
+                original.size?.let { view.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX,it) }
+                view.typeface = original.face
+                original.hints?.let { view.setHintTextColor(it) }
+                if(modern) {
+                    view.setTextColor(Color.rgb(229,237,242)); view.textSize = ((original.size ?: 16f) / resources.displayMetrics.scaledDensity).coerceAtLeast(14f)
+                    view.setTypeface(null,Typeface.NORMAL)
+                    if(view is EditText) { view.setHintTextColor(Color.rgb(164,183,195)); view.background = surface(cardColor) }
+                    if(view is Button) {
+                        view.background = surface(if(view === send) Color.rgb(31,116,94) else cardColor)
+                        view.backgroundTintList = android.content.res.ColorStateList.valueOf(if(view === send) Color.rgb(31,116,94) else cardColor)
+                    }
+                }
+            }
+        }
+        root.setBackgroundColor(if(modern) dark else Color.rgb(245,247,249))
+        window.decorView.systemUiVisibility = if(modern) classicSystemUi and View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR.inv() and View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR.inv() else classicSystemUi
+        if(modern) { incoming.background = surface(cardColor); draft.background = surface(replyColor); status.setTextColor(Color.rgb(115,211,187)) }
+        historyIdentity = ""; render()
+    }
     private fun configureAi() {
         val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20),dp(8),dp(20),0) }
+        box.addView(button("Интерфейс: " + if(modern) "Modern (Experimental/Test)" else "Classic") {
+            AlertDialog.Builder(this).setTitle("Интерфейс").setSingleChoiceItems(
+                arrayOf("Classic", "Modern (Experimental/Test)"),if(modern) 1 else 0
+            ) { chooser, choice -> setInterface(choice == 1); chooser.dismiss() }.setNegativeButton("Закрыть",null).show()
+        })
         box.addView(label("AI получает инструкцию и последние сообщения только выбранного контакта. Ключ AI хранится на сервере. Голос распознаёт сервис телефона.",14f))
         val endpoint = EditText(this).apply { hint = "HTTPS-адрес сервера /draft"; setText(settings.endpoint); inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_URI; isSingleLine = true }
         val token = EditText(this).apply { hint = "Код доступа (не API-ключ)"; setText(settings.token); inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD; isSingleLine = true }

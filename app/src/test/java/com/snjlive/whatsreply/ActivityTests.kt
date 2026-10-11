@@ -19,9 +19,59 @@ import org.robolectric.annotation.Config
 class ActivityTests {
     @Before fun before() {
         RuntimeEnvironment.getApplication().deleteDatabase("history.db")
+        RuntimeEnvironment.getApplication().getSharedPreferences("MainActivity",0).edit().clear().commit()
         ReplyState.targets.clear(); ReplyState.connected = false; ReplyState.changed = null
     }
     private fun descendants(v: View): List<View> = listOf(v) + if(v is ViewGroup) (0 until v.childCount).flatMap { descendants(v.getChildAt(it)) } else emptyList()
+    @Test fun interfaceSwitchKeepsLiveDraftHistoryAndPersistsWithoutRecreation() {
+        val context = RuntimeEnvironment.getApplication()
+        HistoryStore(context).use { it.add(Chat("switch","Switch test"),"incoming","Hello / Привет / สวัสดี") }
+        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val activity = controller.get()
+        val edit = descendants(activity.window.decorView).filterIsInstance<EditText>().first { it.hint.toString().contains("микрофон") }
+        edit.setText("Unsent / Не отправлено / ยังไม่ส่ง")
+        val switch = MainActivity::class.java.getDeclaredMethod("setInterface",Boolean::class.javaPrimitiveType).apply { isAccessible = true }
+        switch.invoke(activity,true)
+        assertSame(edit,descendants(activity.window.decorView).filterIsInstance<EditText>().first { it.hint.toString().contains("микрофон") })
+        assertEquals("Unsent / Не отправлено / ยังไม่ส่ง",edit.text.toString())
+        assertTrue(activity.getPreferences(0).getBoolean("modernInterface",false))
+        switch.invoke(activity,false)
+        assertEquals("Unsent / Не отправлено / ยังไม่ส่ง",edit.text.toString())
+        HistoryStore(context).use { assertEquals(1,it.entries("switch",80).size) }
+        switch.invoke(activity,true)
+        controller.pause().stop().destroy()
+        val restarted = Robolectric.buildActivity(MainActivity::class.java).setup()
+        assertTrue(restarted.get().getPreferences(0).getBoolean("modernInterface",false))
+        assertEquals("Unsent / Не отправлено / ยังไม่ส่ง",descendants(restarted.get().window.decorView).filterIsInstance<EditText>().first { it.hint.toString().contains("микрофон") }.text.toString())
+        restarted.pause().stop().destroy()
+    }
+    @Test fun modernControlsStayOutsideConversationScrollOnNarrowResizedWindow() {
+        RuntimeEnvironment.setQualifiers("w320dp-h640dp")
+        val context = RuntimeEnvironment.getApplication()
+        HistoryStore(context).use { it.add(Chat("narrow","Long contact / Длинный контакт / ชื่อยาว"),"incoming",("Long message / Длинное сообщение / ข้อความยาว\n").repeat(30)) }
+        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val activity = controller.get()
+        fun field(name: String) = MainActivity::class.java.getDeclaredField(name).apply { isAccessible=true }.get(activity)
+        MainActivity::class.java.getDeclaredMethod("setInterface",Boolean::class.javaPrimitiveType).apply { isAccessible=true }.invoke(activity,true)
+        val inbox=field("inboxPage") as View; val chat=field("chatPage") as View
+        inbox.visibility=View.GONE; chat.visibility=View.VISIBLE
+        val root=field("root") as View
+        val send=field("send") as Button; val voice=field("voice") as Button
+        // Reduced available height models adjustResize when the keyboard is present.
+        for(height in listOf(640,400)) {
+            val density=activity.resources.displayMetrics.density
+            val width=(320*density).toInt(); val pixels=(height*density).toInt()
+            root.measure(View.MeasureSpec.makeMeasureSpec(width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(pixels,View.MeasureSpec.EXACTLY));root.layout(0,0,width,pixels)
+            for(button in listOf(send,voice)) {
+                assertTrue(button.measuredHeight >= (48*density).toInt())
+                val rect=android.graphics.Rect();button.getDrawingRect(rect);(root as ViewGroup).offsetDescendantRectToMyCoords(button,rect)
+                assertTrue("Reachable action within resized viewport: $rect / $pixels",rect.bottom<=pixels && rect.top>=0)
+                var parent=button.parent
+                while(parent is View) { assertFalse("Actions must not scroll away",parent is android.widget.ScrollView);parent=parent.parent }
+            }
+        }
+        controller.pause().stop().destroy()
+    }
     @Test fun emptyScreenStartsWithDisabledReplyActions() {
         val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
         val views = descendants(controller.get().window.decorView)
