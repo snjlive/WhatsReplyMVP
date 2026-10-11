@@ -1,0 +1,10 @@
+{
+  "version": "0.6",
+  "version_code": 6,
+  "application_id": "com.snjlive.whatsreply",
+  "tested_source_commit": "f57e8735ef9906f6be560d8cc70f0f58a3f56f6f",
+  "apk_sha256": "b4408e15185e167bb671695491d7043df56255d9422acb79ec9dbc439dd618f9",
+  "android_tests": 30,
+  "backend_tests": 15,
+  "independent_phone_qa": "pending"
+}
